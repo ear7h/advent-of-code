@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+const pegjs = require("pegjs");
+const fs = require("fs");
+const file = fs.readFileSync(process.argv[2], "utf-8");
+const parser = pegjs.generate(file);
+const input = fs.readFileSync(0, "utf-8");
+console.log(parser.parse(input));
