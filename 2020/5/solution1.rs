@@ -18,7 +18,7 @@ fn seat_id(s : &str) -> u64 {
         };
     }
 
-    println!("{} {}", res >> 3, res & 7);
+    //println!("{} {}", res >> 3, res & 7);
     (res >> 3) * 8 + (res & 7)
 }
 

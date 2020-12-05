@@ -32,6 +32,23 @@ impl Seats {
 
         self.data[(id / 8) as usize] |= 1 << (id % 8);
     }
+
+    fn empty_seats<'a>(&'a self) -> impl std::iter::Iterator<Item = u64> + 'a {
+        self.data.iter().enumerate().flat_map(|(idx, n)| {
+
+            /*
+            if *n != 255  {
+                println!("{} {}", idx, n);
+                println!("{}", (idx * 8)  as u32 + n.trailing_ones());
+            }
+            */
+
+            (0..8)
+                .filter(move |i| ((1 << i) & n) == 0)
+                .map(move |i| (idx*8 + i) as u64)
+        })
+
+    }
 }
 
 fn main() {
@@ -42,12 +59,15 @@ fn main() {
     for line in input.lock().lines() {
         seats.add(seat_id(line.unwrap().as_ref()));
     }
+    let res = seats
+        .empty_seats()
+        .fold((0, 0, 0), |acc, el| {
+            if el - acc.2 > 127 {
+                (acc.1, acc.2, el)
+            } else {
+                acc
+            }
+        });
 
-    for (idx, n) in seats.data.iter().enumerate() {
-        if *n != 255  && *n != 0 {
-            println!("{} {}", idx, n);
-            println!("{}", (idx * 8)  as u32 + n.trailing_ones());
-        }
-    }
-    println!("{:?}", seats);
+    println!("{:?}", res.1);
 }
