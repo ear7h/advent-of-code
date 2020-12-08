@@ -2,9 +2,12 @@
 use std::{
     io::{
         self,
-        prelude::*,
         stdin,
         BufReader,
+    },
+    convert::{
+        TryFrom,
+        TryInto,
     },
 };
 
@@ -14,21 +17,27 @@ enum Instr {
     Jmp(isize),
 }
 
-impl From<&str> for Instr {
-    fn from(s : &str) -> Instr {
-        let mut cols = s.split(" ");
-        let instr = cols.next().unwrap();
-        let arg =  cols.next().and_then(|s| s.parse::<isize>().ok()).unwrap();
+impl TryFrom<&str> for Instr {
+    type Error = String;
 
-        match instr {
+    fn try_from(s : &str) -> Result<Instr, String>{
+        let mut cols = s.split(" ");
+        let instr = cols.next().ok_or("no instr".to_string())?;
+        let arg =  cols.next()
+                       .ok_or("no arg".to_string())
+                       .and_then(|s|
+                            s.parse().or(Err("invalid string".to_string())))?;
+
+        Ok(match instr {
             "nop" => Instr::Nop,
             "jmp" => Instr::Jmp(arg),
             "acc" => Instr::Acc(arg),
-            _ => unreachable!(),
-        }
+            _ => return Err("invalid instr".to_string())
+        })
 
     }
 }
+
 
 
 struct Vm {
@@ -38,7 +47,7 @@ struct Vm {
 }
 
 impl Vm {
-    fn new<F: io::BufRead>(f : F) -> Result<Vm, io::Error> {
+    fn new<F: io::BufRead>(f : F) -> Result<Vm, String> {
         let mut ret = Vm {
             acc : 0,
             pc : 0,
@@ -46,7 +55,10 @@ impl Vm {
         };
 
         for line in f.lines() {
-            ret.text.push(line?.as_str().into());
+            ret.text.push(line
+                            .map_err(|e| format!("{}", e))?
+                            .as_str()
+                            .try_into()?);
         }
 
         Ok(ret)

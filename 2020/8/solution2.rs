@@ -2,9 +2,12 @@
 use std::{
     io::{
         self,
-        prelude::*,
         stdin,
         BufReader,
+    },
+    convert::{
+        TryFrom,
+        TryInto,
     },
 };
 
@@ -15,18 +18,23 @@ enum Instr {
     Jmp(isize),
 }
 
-impl From<&str> for Instr {
-    fn from(s : &str) -> Instr {
-        let mut cols = s.split(" ");
-        let instr = cols.next().unwrap();
-        let arg =  cols.next().and_then(|s| s.parse::<isize>().ok()).unwrap();
+impl TryFrom<&str> for Instr {
+    type Error = String;
 
-        match instr {
+    fn try_from(s : &str) -> Result<Instr, String>{
+        let mut cols = s.split(" ");
+        let instr = cols.next().ok_or("no instr".to_string())?;
+        let arg =  cols.next()
+                       .ok_or("no arg".to_string())
+                       .and_then(|s|
+                            s.parse().or(Err("invalid string".to_string())))?;
+
+        Ok(match instr {
             "nop" => Instr::Nop(arg),
             "jmp" => Instr::Jmp(arg),
             "acc" => Instr::Acc(arg),
-            _ => unreachable!(),
-        }
+            _ => return Err("invalid instr".to_string())
+        })
 
     }
 }
@@ -39,7 +47,7 @@ struct Vm {
 }
 
 impl Vm {
-    fn new<F: io::BufRead>(f : F) -> Result<Vm, io::Error> {
+    fn new<F: io::BufRead>(f : F) -> Result<Vm, String> {
         let mut ret = Vm {
             acc : 0,
             pc : 0,
@@ -47,7 +55,10 @@ impl Vm {
         };
 
         for line in f.lines() {
-            ret.text.push(line?.as_str().into());
+            ret.text.push(line
+                            .map_err(|e| format!("{}", e))?
+                            .as_str()
+                            .try_into()?);
         }
 
         Ok(ret)
@@ -70,11 +81,6 @@ impl Vm {
         self.text[self.pc as usize] = instr;
     }
 
-    fn reset(&mut self) {
-        self.acc = 0;
-        self.pc = 0;
-    }
-
     fn step(&mut self) {
         match self.text[self.pc as usize] {
             Instr::Nop(_) => self.pc += 1,
@@ -86,24 +92,6 @@ impl Vm {
         }
 
     }
-}
-
-fn does_halt(vm : &mut Vm, visited : &mut Vec<bool>) -> bool {
-    let mut visited = Vec::new();
-    visited.resize(vm.text.len(), false);
-
-    loop {
-        if visited[vm.pc as usize] {
-            return false
-        }
-        visited[vm.pc as usize] = true;
-        vm.step();
-
-        if vm.pc as usize == visited.len() {
-            return true
-        }
-    }
-
 }
 
 fn find_halt(vm : &mut Vm, visited : &mut Vec<bool>, has_swaped : bool) -> bool {
