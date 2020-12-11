@@ -114,6 +114,8 @@ int main() {
 		}
 	}
 	printf("%ld\n", count);
+	free(grid);
+	free(grid1);
 
 	return 0;
 }
