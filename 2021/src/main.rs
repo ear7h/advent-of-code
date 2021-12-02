@@ -17,6 +17,8 @@ fn main() {
     match (day, version) {
         (1, 'a') => println!("{:?}", run_1a(INPUTS[idx as usize])),
         (1, 'b') => println!("{:?}", run_1b(INPUTS[idx as usize])),
+        (2, 'a') => println!("{:?}", run_2a(INPUTS[idx as usize])),
+        (2, 'b') => println!("{:?}", run_2b(INPUTS[idx as usize])),
         _ => panic!("invalid day ({day}) or version ({version})"),
     }
 }
@@ -24,6 +26,8 @@ fn main() {
 const INPUTS : &'static [&'static str] = &[
     include_str!("inputs/1.txt"),
     include_str!("inputs/1-test.txt"),
+    include_str!("inputs/2.txt"),
+    include_str!("inputs/2-test.txt"),
 ];
 
 
@@ -129,3 +133,40 @@ fn run_1b(input : &str) -> impl Debug {
         .count()
 }
 
+fn run_2a(input : &str) -> impl Debug {
+    let (h, d) = input
+        .lines()
+        .map(|s| {
+
+            let (dir, n) = s.split_once(' ').unwrap();
+            (dir, n.parse().unwrap() : u32)
+        })
+        .fold((0, 0), |(h, d), (dir, n)| {
+            match dir {
+                "forward" => (h + n, d),
+                "down" => (h, d + n),
+                "up" => (h, d - n),
+                _ => (h, d),
+            }
+        });
+    h * d
+}
+
+fn run_2b(input : &str) -> impl Debug {
+    let (h, d, _) = input
+        .lines()
+        .map(|s| {
+
+            let (dir, n) = s.split_once(' ').unwrap();
+            (dir, n.parse().unwrap() : u32)
+        })
+        .fold((0, 0, 0), |(h, d, a), (dir, n)| {
+            match dir {
+                "forward" => (h + n, d + a * n, a),
+                "down" => (h, d, a + n),
+                "up" => (h, d, a - n),
+                _ => (h, d, a),
+            }
+        });
+    h * d
+}
