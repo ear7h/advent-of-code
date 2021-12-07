@@ -1,4 +1,12 @@
-#![feature(type_ascription, array_windows, bool_to_option, is_sorted)]
+// run with:
+//  cargo +nightly run -- day (a | b) | wl-copy
+
+#![feature(type_ascription,
+           array_windows,
+           bool_to_option,
+           is_sorted,
+           drain_filter,
+           concat_idents)]
 
 use std::fmt::Debug;
 use std::iter::IntoIterator;
@@ -10,26 +18,70 @@ fn main() {
     let version = it.next().unwrap().parse().unwrap() : char;
     let test = it.next().unwrap_or("false".into() ).parse().unwrap() : bool;
 
-    println!("{day} {version} {test}");
+    eprintln!("{day} {version} {test}");
 
     let idx = (day - 1) * 2 + (if test { 1 } else { 0 });
 
-    match (day, version) {
-        (1, 'a') => println!("{:?}", run_1a(INPUTS[idx as usize])),
-        (1, 'b') => println!("{:?}", run_1b(INPUTS[idx as usize])),
-        (2, 'a') => println!("{:?}", run_2a(INPUTS[idx as usize])),
-        (2, 'b') => println!("{:?}", run_2b(INPUTS[idx as usize])),
-        _ => panic!("invalid day ({day}) or version ({version})"),
+    /*
+    let run = |s| {
+        Box::new(match (day, version) {
+            (1, 'a') => run_1a(s),
+            (1, 'b') => run_1b(s),
+            (2, 'a') => run_2a(s),
+            (2, 'b') => run_2b(s),
+            (3, 'a') => run_3a(s),
+            (3, 'b') => run_3b(s),
+            _ => panic!("invalid day ({day}) or version ({version})"),
+        })
+    };
+    */
+
+    macro_rules! days {
+        ($( $day:pat => $run:ident),*,) => {
+            const INPUTS : &'static [&'static str] = &[
+                $(
+                    include_str!{
+                        concat!{
+                            "inputs/",
+                            stringify!($day),
+                            ".txt"
+                        }
+                    },
+                    include_str!{
+                        concat!{
+                            "inputs/",
+                            stringify!($day),
+                            "-test.txt"
+                        }
+                    },
+                )*
+            ];
+
+
+            match (day, version) {
+                $(
+                    ($day, 'a') => {
+                        let f = concat_idents!($run, a);
+
+                        println!("{:?}", f(INPUTS[idx as usize]))
+                    },
+                    ($day, 'b') => {
+                        let f = concat_idents!($run, b);
+
+                        println!("{:?}", f(INPUTS[idx as usize]))
+                    },
+                )*
+                _ => panic!("invalid day ({day}) or version ({version})"),
+            }
+        }
+    }
+
+    days!{
+        1 => run_1,
+        2 => run_2,
+        3 => run_3,
     }
 }
-
-const INPUTS : &'static [&'static str] = &[
-    include_str!("inputs/1.txt"),
-    include_str!("inputs/1-test.txt"),
-    include_str!("inputs/2.txt"),
-    include_str!("inputs/2-test.txt"),
-];
-
 
 trait IteratorPlus : Iterator + Sized {
     fn array_windows<const N: usize>(mut self)
@@ -169,4 +221,117 @@ fn run_2b(input : &str) -> impl Debug {
             }
         });
     h * d
+}
+
+fn run_3a(input : &str) -> impl Debug {
+    input
+        .lines()
+        .map(|line| {
+            line
+                .chars()
+                .map(|c| {
+                    match c {
+                        '0' => -1,
+                        '1' => 1,
+                        _ => unreachable!(),
+                    }
+                })
+                .collect() : Vec<_>
+        })
+        .reduce(|mut l, mut r| {
+            l
+                .drain(0..)
+                .zip(r.drain(0..))
+                .map(|(l, r)| l + r)
+                .collect() : Vec<_>
+        })
+        .unwrap()
+        .drain(0..)
+        .map(|n| {
+            use std::cmp::Ordering::*;
+
+            match n.cmp(&0) {
+                Less => 0,
+                Greater => 1,
+                Equal => unreachable!(),
+            }
+        })
+        .try_fold((0, 0), |(a1, a2), el| {
+            Some((
+                a1 << 1 | el,
+                a2 << 1 | (el ^ 1),
+            ))
+        })
+        .map(|(a1, a2)| {
+            a1 * a2
+        })
+        .unwrap()
+}
+
+fn run_3b(input : &str) -> impl Debug {
+    let bits = input
+        .lines()
+        .map(|line| {
+            line
+                .chars()
+                .map(|c| {
+                    match c {
+                        '0' => -1,
+                        '1' => 1,
+                        _ => unreachable!(),
+                    }
+                })
+                .collect() : Vec<_>
+        })
+        .collect() : Vec<_>;
+
+    let mut buf = bits.clone();
+
+    for i in 0.. {
+        use std::cmp::Ordering::*;
+
+        if buf.len() == 1 {
+            break
+        }
+
+        let n = buf
+            .iter()
+            .fold(0, |acc, el| acc + el[i]);
+
+        let n = match n.cmp(&0) {
+            Less => -1,
+            Greater | Equal => 1,
+        };
+
+
+        buf.drain_filter(|el| el[i] != n).count();
+    }
+
+    let oxy = buf[0].iter().fold(0, |acc, el| acc << 1 | ((el + 1) / 2));
+
+    let mut buf = bits;
+
+    for i in 0.. {
+        use std::cmp::Ordering::*;
+
+        if buf.len()  == 1 {
+            break
+        }
+
+        let n = buf
+            .iter()
+            .fold(0, |acc, el| acc + el[i]);
+
+        let n = match n.cmp(&0) {
+            Less => 1,
+            Greater | Equal => -1,
+        };
+
+
+        buf.drain_filter(|el| el[i] != n).count();
+    }
+
+    let co2 = buf[0].iter().fold(0, |acc, el| acc << 1 | ((el + 1) / 2));
+
+    oxy * co2
 }
